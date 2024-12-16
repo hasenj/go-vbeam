@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -37,11 +38,24 @@ var watchScript string
 
 func TSWatch(dirlist []string, ch chan TSReport) {
 	log.Println("TS Watch:", strings.Join(dirlist, " "))
+
+	// install typescript if it's not installed
+	if _, err := os.Stat("node_modules/typescript"); os.IsNotExist(err) {
+		log.Println("Installing typescript library")
+		cmd := exec.Command("npm", "install", "--save-dev", "typescript@5.x")
+		if err := cmd.Run(); err != nil {
+			log.Println("Failed to install TypeScript:", err)
+			close(ch)
+			return
+		}
+	}
+
 	args := append([]string{"--input-type=module", "-"}, dirlist...)
 	cmd := exec.Command("node", args...)
 
 	stdin := generic.Must(cmd.StdinPipe())
 	stdout := generic.Must(cmd.StdoutPipe())
+	stderr := generic.Must(cmd.StderrPipe())
 
 	io.WriteString(stdin, watchScript)
 	stdin.Close()
@@ -90,13 +104,19 @@ func TSWatch(dirlist []string, ch chan TSReport) {
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Println("watch error (3):", err)
-		return
-	}
+	// tswatch program exited!!
+	close(ch)
+
+	// report the error from stderr to the user
+	// probably will not be very helpful, but it's better than nothing!
+	var output strings.Builder
+	io.Copy(&output, stderr)
 
 	if err := cmd.Wait(); err != nil {
-		log.Println("watch error (3):", err)
+		log.Println("Type Checker:", err)
+		if output.Len() > 0 {
+			log.Println(output.String())
+		}
 		return
 	}
 }

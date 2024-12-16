@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type Bridge struct {
@@ -169,14 +170,22 @@ func DecideEnumTypeName(t reflect.Type) string {
 	}
 }
 
+var timeType = reflect.TypeOf(time.Time{})
+var bytesType = reflect.TypeOf([]byte{})
+
 func (b *Bridge) DecideTypescriptTypeName(t reflect.Type) string {
 	var kind = t.Kind()
 	// fmt.Println("Type:", t, "Kind:", kind)
 
 	switch kind {
 	case reflect.Struct:
-		b.QueueType(t)
-		return t.Name()
+		// special cases:
+		if t == timeType { // time is always serialized as a string
+			return "string"
+		} else {
+			b.QueueType(t)
+			return t.Name()
+		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64:
 		if t.String() != kind.String() {
 			// potentially an enum!
@@ -196,11 +205,15 @@ func (b *Bridge) DecideTypescriptTypeName(t reflect.Type) string {
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Slice, reflect.Array:
-		var elementType = b.DecideTypescriptTypeName(t.Elem())
-		if elementType == "" {
-			return ""
+		if t == bytesType { // bytes is always serialized as a string
+			return "string"
+		} else {
+			var elementType = b.DecideTypescriptTypeName(t.Elem())
+			if elementType == "" {
+				return ""
+			}
+			return elementType + "[]"
 		}
-		return elementType + "[]"
 	case reflect.Map:
 		var elementType = b.DecideTypescriptTypeName(t.Elem())
 		if elementType == "" {

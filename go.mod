@@ -10,7 +10,7 @@ require (
 	github.com/otiai10/copy v1.14.0
 	go.hasen.dev/generic v0.1.2
 	go.hasen.dev/term v0.1.0
-	go.hasen.dev/vbolt v0.2.0
+	go.hasen.dev/vbolt v0.2.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 

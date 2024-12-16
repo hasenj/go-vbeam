@@ -34,6 +34,9 @@ type _LocalDev struct {
 
 	scrollPos int // from the bottom
 
+	// we need to keep track of this separately since it's an external program
+	tsRunning bool
+
 	tsReport vbeam.TSReport
 	esReport esbuilder.ESReport
 
@@ -166,6 +169,7 @@ func (local *_LocalDev) renderFrame() {
 	}
 
 	yellow := term.Style{Foreground: term.Yellow, Attr: term.DefaultBackground}
+	red := term.Style{Foreground: term.Red, Attr: term.DefaultBackground}
 
 	var tsErrorCount = len(local.tsReport.Diagnostics)
 
@@ -193,7 +197,7 @@ func (local *_LocalDev) renderFrame() {
 		cursor = tsStatus.Point
 
 		// typescript status
-		{
+		if local.tsRunning {
 			if local.tsReport.Time.IsZero() {
 				RenderText(&cursor, yellow, "Type Checking")
 			} else {
@@ -208,6 +212,8 @@ func (local *_LocalDev) renderFrame() {
 					RenderText(&cursor, errorStyle, fmt.Sprintf("Typescript: %d errors", tsErrorCount))
 				}
 			}
+		} else {
+			RenderText(&cursor, red, "Type Checking Not Running")
 		}
 	}
 
@@ -352,6 +358,8 @@ func LaunchUI(args LocalServerArgs) {
 				local.tsReport = report
 				local.tsReportState = makeTSReportUI(report)
 			}
+			// channel closed indicates watch program stopped
+			local.tsRunning = false
 		}()
 		go func() {
 			for report := range esChannel {
@@ -365,6 +373,8 @@ func LaunchUI(args LocalServerArgs) {
 				}
 			}
 		}()
+
+		local.tsRunning = true
 
 		go esbuilder.FEWatch(local.FEOpts, local.FEWatchDirs, esChannel)
 		go vbeam.TSWatch(local.FEWatchDirs, tsChannel)
